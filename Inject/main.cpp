@@ -2,9 +2,11 @@
 #include <tchar.h>
 #include <stdio.h>
 #include <tlhelp32.h>
-#include <list>
+//#include <list>
+#include <map>
 
 #include "../inc/common.h"
+
 
 BOOL EnableDebugPrivilege()
 {
@@ -164,18 +166,17 @@ void initAsio(){
         printf("FMOD System Initialize Failed: %s\n", FMOD_ErrorString((FMOD_RESULT)initRet));
         return;
     }
-	
+
 }
 
+std::map<DWORD, FMOD::Sound *> g_sample_map;
 
-std::list<PHANDLES> g_handle_list;
 
 void do_BASS_SampleLoad(){
 	FMOD::Sound *sound = NULL;
 	FMOD_MODE mode = FMOD_CREATESAMPLE;
-	FMOD_CREATESOUNDEXINFO info = {0};
 	
-	FMOD_RESULT r = fmodSystem->createSound(psd->buf, FMOD_CREATESAMPLE, 0, &sound);
+	FMOD_RESULT r = fmodSystem->createSound(psd->buf, FMOD_CREATESAMPLE/* | FMOD_LOOP_NORMAL*/, 0, &sound);
 	printf("create sound %s\n", psd->buf);
 
 	if (r != FMOD_OK)
@@ -183,28 +184,33 @@ void do_BASS_SampleLoad(){
 		printf("[FMOD] Loading Sample (%s) Error: %s\n", psd->buf, FMOD_ErrorString(r));
 		return;
 	}
-	PHANDLES p = (PHANDLES)malloc(sizeof(HANDLES));
-	p->sound = sound;
-	p->hSample = psd->hSample;
-	//p->hchan = 0;
-	g_handle_list.push_back(p);
-	printf("hSample: %p added to list\n", psd->hSample);
-	printf("list size: %d\n", g_handle_list.size());
+	g_sample_map[psd->hSample] = sound;
+	//PHANDLES p = (PHANDLES)malloc(sizeof(HANDLES));
+	//p->sound = sound;
+	//p->hSample = psd->hSample;
+	////p->hchan = 0;
+	//g_handle_list.push_back(p);
+	printf("hSample: %p added\n", psd->hSample);
+	printf("sample size: %d\n", g_sample_map.size());
 }
 
 void do_bind_sample(){
-	std::list<PHANDLES>::reverse_iterator ir; 
-	for (ir =g_handle_list.rbegin(); ir!=g_handle_list.rend();ir++) {   
-		PHANDLES p = *ir;
-		if(p->hSample == psd->hSample ){
-			//p->hchan = psd->hChanel;
-			fmodSystem->playSound(p->sound, 0, false, 0);
-			//printf("bind hSample %p success\n", psd->hSample);
-			return;
-		}
-	}  
+	FMOD::Sound *sound = g_sample_map[psd->hSample];
+	if(sound)
+	{
+		fmodSystem->playSound(sound, 0, false, 0);
+	}
+    
 }
 
+void do_bind_sample2(){
+	FMOD::Sound *sound = g_sample_map[psd->hSample2];
+	if(sound)
+	{
+		fmodSystem->playSound(sound, 0, false, 0);
+	}
+    
+}
 int _tmain(int argc, TCHAR *argv[])
 { 
     GetModuleFileName(NULL,szDllPath, 1024); 
@@ -241,17 +247,33 @@ int _tmain(int argc, TCHAR *argv[])
 	while(1)
 	{
 		WaitForSingleObject(osuRequest, INFINITE);
-		psd->injectIsBusy = 1;
-		switch (psd->requestId)
+		if(psd->request)
 		{
-		case OSU_REQUEST_SAMPLE_LOAD:
-			do_BASS_SampleLoad();
-			break;
-		case OSU_REQUEST_SAMPLE_GETCHANNEL:
-			do_bind_sample();
-			break;
+			psd->injectIsBusy = 1;
+			psd->request  = 0;
+			switch (psd->requestId)
+			{
+			case OSU_REQUEST_SAMPLE_LOAD:
+				do_BASS_SampleLoad();
+				break;
+			case OSU_REQUEST_SAMPLE_GETCHANNEL:
+				do_bind_sample();
+				break;
+			}
+			psd->injectIsBusy = 0;
 		}
-		psd->injectIsBusy = 0;
+		if(psd->request2)
+		{
+			psd->injectIsBusy2 = 1;
+			psd->request2  = 0;
+			switch (psd->requestId2)
+			{
+			case OSU_REQUEST_SAMPLE_GETCHANNEL:
+				do_bind_sample2();
+				break;
+			}
+			psd->injectIsBusy2 = 0;
+		}
 	}
 	return 0;
 }

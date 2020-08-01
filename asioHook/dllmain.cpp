@@ -38,6 +38,7 @@ void hook_BASS_SampleLoad_ebd()
 	}
 
 	strcpy(psd->buf, sample);
+	psd->request = 1;
 	psd->requestId = OSU_REQUEST_SAMPLE_LOAD;
 	psd->hSample = SampleLoad_ret;
 	ReleaseSemaphore(osuRequest, 1, NULL);
@@ -85,14 +86,20 @@ void hook_BASS_SampleGetChannel_ebd(){
 		mov ret_BASS_SampleGetChannel, eax
 	}
 
-	while(psd->injectIsBusy){
-		__asm pause
+	if(!psd->injectIsBusy){
+		psd->request = 1;
+		psd->requestId = OSU_REQUEST_SAMPLE_GETCHANNEL;
+		psd->hSample = arg_BASS_SampleGetChannel1;
+		ReleaseSemaphore(osuRequest, 1, NULL);
 	}
 
-	psd->requestId = OSU_REQUEST_SAMPLE_GETCHANNEL;
-	psd->hSample = arg_BASS_SampleGetChannel1;
-	//psd->hChanel = ret_BASS_SampleGetChannel;
-	ReleaseSemaphore(osuRequest, 1, NULL);
+	if(!psd->injectIsBusy2){
+		psd->request2 = 1;
+		psd->requestId2 = OSU_REQUEST_SAMPLE_GETCHANNEL;
+		psd->hSample2 = arg_BASS_SampleGetChannel1;
+		ReleaseSemaphore(osuRequest, 1, NULL);
+	}
+	
 }
 void __declspec(naked) hook_BASS_SampleGetChannel(){
 	__asm{
@@ -102,6 +109,7 @@ void __declspec(naked) hook_BASS_SampleGetChannel(){
 		mov arg_BASS_SampleGetChannel2, eax
 	}
 	hook_BASS_SampleGetChannel_ebd();
+	__asm mov eax, ret_BASS_SampleGetChannel
 	__asm ret 8
 }
 
