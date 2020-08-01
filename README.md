@@ -10,12 +10,12 @@ It is realized by inject some dll into the osu game process, hook the sound libr
 
 1. Make sure your sound device hardware support ASIO,  a virtual ASIO device simulated by software may work with this programm, but it gives no help with the sound output lag. If you are not sure about if your hadware supporting, you can use "ListDev.exe" to list all ASIO devices.
 
-2. This programm works by some "external hanging" skill, so it may be thought as some kind of "cheat for game", and you should consider the risk of getting your osu account banned. Also the author do not think this is some cheat for game,  the only purpose of it is to reduce the sound output lag.
+2. This programm works by some "external hanging" skill, so it may be thought as some kind of "cheat for game", and you should consider the **risk of getting your osu account banned**. Although the author do not think this is some cheat for game,  the only purpose of it is to reduce the sound output lag.
 
 3. Hope that ppy will add in-game support for ASIO sound devices in osu, then this programm will become no use.
 
 ## Install
 
-Download Release/asioHook.zip and upzip it, follow the guide in readme.txt.
+Download the latest released package and upzip it, follow the guide in readme.txt.
 
 You should set the process priority of "Inject.exe" to "High" or "Real Time" (you should alreay set the process priority of "osu!.exe" to "High" or "Real Time" if you find this programm useful), this will reduce the lag due to interprocess communication.
