@@ -1,7 +1,7 @@
 # AsioHookForOsu
 ## What is this?
 
-This is a programm to enable the osu in-game effect sound output to your ASIO sound device, and it will help to reduce the effect sound lag due to the hardware support (less than 1ms, compared to about 20ms+ for hardware not support ASIO).
+This is a programm to enable the osu in-game effect sound output to your ASIO sound device, and it will help to reduce the effect sound lag due to the hardware support.
 
 It is realized by inject some dll into the osu game process, hook the sound library "bass.dll", and notice the other process "Inject.exe" to output to ASIO device by using "fmod.dll".
 
