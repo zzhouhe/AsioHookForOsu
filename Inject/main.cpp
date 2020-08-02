@@ -161,12 +161,13 @@ void initAsio(){
 	fmodSystem->setSoftwareFormat(sampleRate, FMOD_SPEAKERMODE_DEFAULT, 0);
 	fmodSystem->setDSPBufferSize(fmodBuffLength, fmodMaxBuffers);
 	initRet = fmodSystem->init(32, FMOD_INIT_NORMAL, 0);    // Initialize FMOD.
+
+
     if (initRet != FMOD_OK)
     {
         printf("FMOD System Initialize Failed: %s\n", FMOD_ErrorString((FMOD_RESULT)initRet));
         return;
     }
-
 }
 
 std::map<DWORD, FMOD::Sound *> g_sample_map;
@@ -185,11 +186,7 @@ void do_BASS_SampleLoad(){
 		return;
 	}
 	g_sample_map[psd->hSample] = sound;
-	//PHANDLES p = (PHANDLES)malloc(sizeof(HANDLES));
-	//p->sound = sound;
-	//p->hSample = psd->hSample;
-	////p->hchan = 0;
-	//g_handle_list.push_back(p);
+
 	printf("hSample: %p added\n", psd->hSample);
 	printf("sample size: %d\n", g_sample_map.size());
 }
@@ -199,6 +196,8 @@ void do_bind_sample(){
 	if(sound)
 	{
 		fmodSystem->playSound(sound, 0, false, 0);
+		fmodSystem->update();
+		//printf("play smple 1\n");
 	}
     
 }
@@ -208,9 +207,43 @@ void do_bind_sample2(){
 	if(sound)
 	{
 		fmodSystem->playSound(sound, 0, false, 0);
+		fmodSystem->update();
+		//printf("play smple 2\n");
 	}
     
 }
+void do_bind_sample3(){
+	FMOD::Sound *sound = g_sample_map[psd->hSample3];
+	if(sound)
+	{
+		fmodSystem->playSound(sound, 0, false, 0);
+		fmodSystem->update();
+		//printf("play smple 3\n");
+	}
+    
+}
+void do_bind_sample4(){
+	FMOD::Sound *sound = g_sample_map[psd->hSample4];
+	if(sound)
+	{
+		fmodSystem->playSound(sound, 0, false, 0);
+		fmodSystem->update();
+		//printf("play smple 4\n");
+	}
+    
+}
+void do_bind_sample5(){
+	FMOD::Sound *sound = g_sample_map[psd->hSample5];
+	if(sound)
+	{
+		fmodSystem->playSound(sound, 0, false, 0);
+		fmodSystem->update();
+		//printf("play smple 5\n");
+	}
+    
+}
+
+
 int _tmain(int argc, TCHAR *argv[])
 { 
     GetModuleFileName(NULL,szDllPath, 1024); 
@@ -273,6 +306,44 @@ int _tmain(int argc, TCHAR *argv[])
 				break;
 			}
 			psd->injectIsBusy2 = 0;
+		}
+		
+		if(psd->request3)
+		{
+			psd->injectIsBusy3 = 1;
+			psd->request3  = 0;
+			switch (psd->requestId3)
+			{
+			case OSU_REQUEST_SAMPLE_GETCHANNEL:
+				do_bind_sample3();
+				break;
+			}
+			psd->injectIsBusy3 = 0;
+		}
+		if(psd->request4)
+		{
+			psd->injectIsBusy4 = 1;
+			psd->request4  = 0;
+			switch (psd->requestId4)
+			{
+			case OSU_REQUEST_SAMPLE_GETCHANNEL:
+				do_bind_sample4();
+				break;
+			}
+			psd->injectIsBusy4 = 0;
+		}
+
+		if(psd->request5)
+		{
+			psd->injectIsBusy5 = 1;
+			psd->request5  = 0;
+			switch (psd->requestId5)
+			{
+			case OSU_REQUEST_SAMPLE_GETCHANNEL:
+				do_bind_sample5();
+				break;
+			}
+			psd->injectIsBusy5 = 0;
 		}
 	}
 	return 0;

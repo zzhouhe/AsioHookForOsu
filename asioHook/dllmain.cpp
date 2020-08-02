@@ -91,6 +91,7 @@ void hook_BASS_SampleGetChannel_ebd(){
 		psd->requestId = OSU_REQUEST_SAMPLE_GETCHANNEL;
 		psd->hSample = arg_BASS_SampleGetChannel1;
 		ReleaseSemaphore(osuRequest, 1, NULL);
+		return;
 	}
 
 	if(!psd->injectIsBusy2){
@@ -98,6 +99,28 @@ void hook_BASS_SampleGetChannel_ebd(){
 		psd->requestId2 = OSU_REQUEST_SAMPLE_GETCHANNEL;
 		psd->hSample2 = arg_BASS_SampleGetChannel1;
 		ReleaseSemaphore(osuRequest, 1, NULL);
+		return;
+	}
+	if(!psd->injectIsBusy3){
+		psd->request3 = 1;
+		psd->requestId3 = OSU_REQUEST_SAMPLE_GETCHANNEL;
+		psd->hSample3 = arg_BASS_SampleGetChannel1;
+		ReleaseSemaphore(osuRequest, 1, NULL);
+		return;
+	}
+	if(!psd->injectIsBusy4){
+		psd->request4 = 1;
+		psd->requestId4 = OSU_REQUEST_SAMPLE_GETCHANNEL;
+		psd->hSample4 = arg_BASS_SampleGetChannel1;
+		ReleaseSemaphore(osuRequest, 1, NULL);
+		return;
+	}
+	if(!psd->injectIsBusy5){
+		psd->request5 = 1;
+		psd->requestId5 = OSU_REQUEST_SAMPLE_GETCHANNEL;
+		psd->hSample5 = arg_BASS_SampleGetChannel1;
+		ReleaseSemaphore(osuRequest, 1, NULL);
+		return;
 	}
 	
 }
