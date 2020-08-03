@@ -32,6 +32,7 @@ typedef struct _sharedData{
 	DWORD requestId5;
 	DWORD injectIsBusy5;
 	DWORD hSample5;
+
 } SHAREDDATA, *PSHAREDDATA;
 
 typedef PSHAREDDATA (*PgetSharedData)();

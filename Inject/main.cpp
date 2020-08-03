@@ -7,6 +7,7 @@
 
 #include "../inc/common.h"
 
+#pragma comment(lib, "../fmod/lib/fmod_vc.lib")
 
 BOOL EnableDebugPrivilege()
 {
@@ -243,7 +244,6 @@ void do_bind_sample5(){
     
 }
 
-
 int _tmain(int argc, TCHAR *argv[])
 { 
     GetModuleFileName(NULL,szDllPath, 1024); 
@@ -345,6 +345,7 @@ int _tmain(int argc, TCHAR *argv[])
 			}
 			psd->injectIsBusy5 = 0;
 		}
+
 	}
 	return 0;
 }

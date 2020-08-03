@@ -3,13 +3,14 @@
 #include <Windows.h>
 #include "../inc/common.h"
 #include <list>
+#include <time.h>
 
+//#define BASS2009
 HANDLE osuRequest;
 
 volatile PSHAREDDATA psd;
 
 HMODULE hmod;
-
 
 
 void Unicode2Ascii(LPCWSTR src,char*tar)
@@ -58,9 +59,16 @@ void __declspec(naked) hook_BASS_SampleLoad(){
 		popfd
 		popad
 
+#ifdef BASS2009
+		pop esi
+		pop ebx
+		leave
+		ret 0x1c
+#else
 		mov esp, ebp
 		pop ebp
 		ret 0x1c
+#endif
 	}
 }
 
@@ -72,13 +80,18 @@ void __declspec(naked) real_BASS_SampleGetChannel(){
 	__asm{
 		push ebp
 		mov ebp, esp
-		sub esp, 0x3c
+#ifdef BASS2009
+	sub esp, 0x28
+#else
+	sub esp, 0x3c
+#endif
 		mov eax, addr_BASS_SampleGetChannel
 		add eax, 6
 		jmp eax
 	}
 }
 void hook_BASS_SampleGetChannel_ebd(){
+
 	__asm{
 		push arg_BASS_SampleGetChannel2
 		push arg_BASS_SampleGetChannel1
@@ -101,6 +114,7 @@ void hook_BASS_SampleGetChannel_ebd(){
 		ReleaseSemaphore(osuRequest, 1, NULL);
 		return;
 	}
+
 	if(!psd->injectIsBusy3){
 		psd->request3 = 1;
 		psd->requestId3 = OSU_REQUEST_SAMPLE_GETCHANNEL;
@@ -122,9 +136,12 @@ void hook_BASS_SampleGetChannel_ebd(){
 		ReleaseSemaphore(osuRequest, 1, NULL);
 		return;
 	}
-	
+
 }
+
+
 void __declspec(naked) hook_BASS_SampleGetChannel(){
+
 	__asm{
 		mov eax, [esp+4]
 		mov arg_BASS_SampleGetChannel1, eax
@@ -132,6 +149,7 @@ void __declspec(naked) hook_BASS_SampleGetChannel(){
 		mov arg_BASS_SampleGetChannel2, eax
 	}
 	hook_BASS_SampleGetChannel_ebd();
+
 	__asm mov eax, ret_BASS_SampleGetChannel
 	__asm ret 8
 }
@@ -144,10 +162,18 @@ void doHook(){
 	printf("bass.dll: %p\n", hmod);
 
 	DWORD oldProtect;
-
+	
+#ifdef BASS2009
+	addr_BASS_SampleLoad = (DWORD)hmod + 0xd567;
+#else
 	addr_BASS_SampleLoad = (DWORD)GetProcAddress(hmod, "BASS_SampleCreate") -6;
+#endif
 	printf("addr_BASS_SampleLoad: %p\n", addr_BASS_SampleLoad);
+#ifdef BASS2009
+	if (*(DWORD*)(addr_BASS_SampleLoad+3)  != 0x56001cc2)
+#else
 	if (*(DWORD*)(addr_BASS_SampleLoad+3)  != 0x55001cc2)
+#endif
 	{
 		printf("wrong version of bass.dll\n");
 		return;
@@ -160,7 +186,11 @@ void doHook(){
 
 	addr_BASS_SampleGetChannel = (DWORD)GetProcAddress(hmod, "BASS_SampleGetChannel");
 	printf("addr_BASS_SampleGetChannel: %p\n", addr_BASS_SampleGetChannel);
+#ifdef BASS2009
+	if (*(DWORD*)(addr_BASS_SampleGetChannel+2)  != 0x28ec83ec)
+#else
 	if (*(DWORD*)(addr_BASS_SampleGetChannel+2)  != 0x3cec83ec)
+#endif
 	{
 		printf("wrong version of bass.dll\n");
 		return;
@@ -175,7 +205,7 @@ void doHook(){
 
 
 DWORD WINAPI ThreadFunc(LPVOID param) {  
-	osuRequest = CreateSemaphore(NULL, 0, 1, "osuRequest");
+	osuRequest = CreateSemaphore(NULL, 0, 5, "osuRequest");
 	printf("osuRequest: %p\n", osuRequest);
 
 	HMODULE hsd = LoadLibrary("sharedData.dll");
