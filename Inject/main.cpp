@@ -27,9 +27,10 @@ BOOL EnableDebugPrivilege()
   }
     return fOk;
 }
-char szDllPath[1024];
+char szHookDllPath[1024];
+char szSampleFolderPath[1024];
 DWORD dwPID = 0;
-char szOsuPath[1024];
+//char szSharedDllPath[1024];
 char szConfigPath[1024];
 VOID EnumProcess()
 {
@@ -65,12 +66,12 @@ BOOL InjectDll()
 		system("pause");
 		return false;
 	}
-	printf("szdllPath = %s\n", szDllPath);
+	printf("szdllPath = %s\n", szHookDllPath);
 	HANDLE hProcess = NULL;
 	HANDLE hThread = NULL;
 	HMODULE hMod = NULL;
 	LPVOID pRemoteBuf = NULL;
-	DWORD dwBufsize = (_tcslen(szDllPath) + 1) * sizeof(TCHAR);
+	DWORD dwBufsize = (_tcslen(szHookDllPath) + 1) * sizeof(TCHAR);
 	printf("inject dwBufsize = %d\n", dwBufsize);
 	LPTHREAD_START_ROUTINE pThreadProc;
 	EnableDebugPrivilege();
@@ -84,7 +85,7 @@ BOOL InjectDll()
 	pRemoteBuf = VirtualAllocEx(hProcess, NULL, dwBufsize, MEM_COMMIT,
 		PAGE_READWRITE);
 	printf("inject pRemoteBuf = %p\n", pRemoteBuf);
-	WriteProcessMemory(hProcess, pRemoteBuf, szDllPath, dwBufsize, NULL);
+	WriteProcessMemory(hProcess, pRemoteBuf, szHookDllPath, dwBufsize, NULL);
 	hMod = GetModuleHandle(_T("kernel32.dll"));
 	pThreadProc = (LPTHREAD_START_ROUTINE)GetProcAddress(hMod, _T("LoadLibraryA"));
 	printf("%p\n", pThreadProc);
@@ -115,6 +116,8 @@ FMOD::System *fmodSystem = nullptr;
 DWORD fmodMaxBuffers;
 DWORD fmodBuffLength;
 DWORD sampleRate;
+DWORD processPriority;
+DWORD curPriority;
 void initAsio(){
 	char buf[1024];
 	char *p;
@@ -122,7 +125,6 @@ void initAsio(){
 	if (!fp)
 	{
 		printf("open config.ini failed\n");
-		printf(szDllPath);
 		system("pause");
 	}
 	while (fgets(buf, 1024, fp)){
@@ -130,21 +132,44 @@ void initAsio(){
 		if(strstr(buf, "devId"))
 		{
 			sscanf(p, "%d", &devId);
-		}else if (strstr(buf, "osuPath")){
+		}/*else if (strstr(buf, "osuPath")){
 			sscanf(p, "%s", &szOsuPath);
-		}else if (strstr(buf, "fmodBuffLength")){
+		}*/else if (strstr(buf, "fmodBuffLength")){
 			sscanf(p, "%d", &fmodBuffLength);
 		}else if (strstr(buf, "fmodMaxBuffers")){
 			sscanf(p, "%d", &fmodMaxBuffers);
 		}else if (strstr(buf, "sampleRate")){
 			sscanf(p, "%d", &sampleRate);
+		}else if (strstr(buf, "processPriority")){
+			sscanf(p, "%d", &processPriority);
 		}
 	}
 
 	fclose(fp);
 	printf("devId: %d\n", devId);
 	printf("initAsio...\n");
-
+	switch (processPriority)
+	{
+	default:
+		break;
+	case 2:
+		SetPriorityClass(GetCurrentProcess(), HIGH_PRIORITY_CLASS);
+		break;
+	case 3:
+		//HANDLE hProcess = OpenProcess(PROCESS_ALL_ACCESS, FALSE, dwPID);
+		SetPriorityClass(GetCurrentProcess(), REALTIME_PRIORITY_CLASS);
+		//CloseHandle(hProcess);
+	//r = SetPriorityClass(GetCurrentProcess(), REALTIME_PRIORITY_CLASS | HIGH_PRIORITY_CLASS);
+	//printf("r: %d\n", r);
+		
+		break;
+	}
+	curPriority = GetPriorityClass(GetCurrentProcess());
+	if (curPriority == HIGH_PRIORITY_CLASS)
+		printf("Current Process Priority HIGH\n");
+	if (curPriority == REALTIME_PRIORITY_CLASS)
+		printf("Current Process Priority REALTIME\n");
+	//printf("%p\n", GetPriorityClass(GetCurrentProcess()));
 	FMOD_RESULT initRet = FMOD::System_Create(&fmodSystem);      // Create the main system object.
 	if (initRet != FMOD_OK)
     {
@@ -171,12 +196,29 @@ void initAsio(){
     }
 }
 
-std::map<DWORD, FMOD::Sound *> g_sample_map;
+std::map<DWORD, FMOD::Sound *>			g_sample_map;	//<sample, sound>
+//std::map<DWORD, DWORD>					g_channel_map;	//<channel, sample>
+//std::map<DWORD, FMOD::Channel*>					g_ch_fmodch_map;	//<ch, fmodchannel>
+#define TEMP_CH_SIZE	16
+struct _ch_fmodch_node{
+	DWORD ch;
+	FMOD::Channel* fmodch;
+} g_ch_fmodch_node[TEMP_CH_SIZE];
+DWORD g_head = 0;
+DWORD g_tail = 0;
+
+void Unicode2Ascii(LPCWSTR src,char*tar)
+{
+	unsigned int n;
+	n=WideCharToMultiByte(0,0,src,(unsigned int)-1, 0, 0,0,0);
+	WideCharToMultiByte(0,0,src,(unsigned int)-1,(char*)tar,n,0,0);
+	tar[n]=0;
+}
 
 
 void do_BASS_SampleLoad(){
 	FMOD::Sound *sound = NULL;
-	FMOD_MODE mode = FMOD_CREATESAMPLE;
+	//FMOD_MODE mode = FMOD_CREATESAMPLE;
 	
 	FMOD_RESULT r = fmodSystem->createSound(psd->buf, FMOD_CREATESAMPLE/* | FMOD_LOOP_NORMAL*/, 0, &sound);
 	printf("create sound %s\n", psd->buf);
@@ -186,87 +228,197 @@ void do_BASS_SampleLoad(){
 		printf("[FMOD] Loading Sample (%s) Error: %s\n", psd->buf, FMOD_ErrorString(r));
 		return;
 	}
-	g_sample_map[psd->hSample] = sound;
+	g_sample_map[psd->data[0].hSample] = sound;
 
-	printf("hSample: %p added\n", psd->hSample);
-	printf("sample size: %d\n", g_sample_map.size());
+	//printf("hSample: %p added\n", psd->data[0].hSample);
+	printf("sample cllection size: %d\n", g_sample_map.size());
 }
+void do_BASS_SampleLoad_mem(){
 
-void do_bind_sample(){
-	FMOD::Sound *sound = g_sample_map[psd->hSample];
+	//char szSkin[16] = {'S', 0, 'k', 0, 'i', 0, 'n', 0, 's', 0, '\\', 0, };
+	//char *p = psd->buf;
+	//int i;
+	//for (i=0; i<0x100; i++){
+	//	if (!memcmp(p, szSkin, 12))
+	//		break;
+	//	p++;
+	//}
+	//if (i==0x100)
+	//	return;
+	//p+=12;
+	//char name[256];
+	//Unicode2Ascii((LPCWSTR)p,  name);
+	//char *fname = strrchr(name, '\\');
+	//fname++;
+	//p = strrchr(fname, '.');
+	//p[1] = 0;
+	//
+	FMOD::Sound *sound = NULL;
+	FMOD_CREATESOUNDEXINFO extinfo = {0};
+	extinfo.cbsize = sizeof(extinfo);
+	extinfo.length = psd->length;
+	FMOD_RESULT r = fmodSystem->createSound(psd->buf, FMOD_CREATESAMPLE | FMOD_OPENMEMORY/* | FMOD_LOOP_NORMAL*/, &extinfo, &sound);
+	printf("create default sound\n");
+
+	if (r != FMOD_OK)
+	{
+		printf("[FMOD] Loading default Sample (??) Error: %s\n", FMOD_ErrorString(r));
+		return;
+	}
+	g_sample_map[psd->data[0].hSample] = sound;
+
+
+	printf("sample cllection size: %d\n", g_sample_map.size());
+}
+void do_bind_sample(int i){
+	//printf("sample: %p\n", psd->data[0].hSample);
+	DWORD hSample = psd->data[i].hSample;
+	if (!hSample)
+		return;
+	FMOD::Sound *sound = g_sample_map[hSample];
+	FMOD::Channel *fmod_ch;
 	if(sound)
 	{
-		fmodSystem->playSound(sound, 0, false, 0);
+		fmodSystem->playSound(sound, 0, false, &fmod_ch);
 		fmodSystem->update();
+		//g_ch_fmodch_map[psd->data[i].hChannel] = fmod_ch;
+		//printf("play smple 1\n");
+		g_ch_fmodch_node[g_tail].ch = psd->data[i].hChannel;
+		g_ch_fmodch_node[g_tail].fmodch = fmod_ch;
+		g_tail++;
+		g_tail%=TEMP_CH_SIZE;
+		if (g_tail == g_head)
+		{
+			g_head++;
+			g_head%=TEMP_CH_SIZE;
+		}
+	}
+	//DWORD hChannel = psd->data[0].hChannel;
+	//if (!hChannel)
+	//	return;
+	//g_channel_map[hChannel] = psd->data[0].hSample;
+	//printf(" %d, %d\n", g_sample_map.size(), g_tail-g_head);
+    
+}
+
+//std::map<DWORD, FMOD::Channel*>					g_ch_fmodch_map;	//<channel, fmodchannel>
+
+//void do_BASS_ChannelPlay(int i)
+//{
+//	
+//	DWORD hChannel = psd->data[i].hChannel;
+//	printf("ch: %p\n", hChannel);
+//	if (!hChannel)
+//		return;
+//	DWORD hSample = g_channel_map[hChannel];
+//	if (!hSample)
+//		return;
+//	FMOD::Sound *sound = g_sample_map[hSample];
+//	FMOD::Channel *fmod_ch;
+//	if(sound)
+//	{
+//		fmodSystem->playSound(sound, 0, false, &fmod_ch);
+//		fmodSystem->update();
+//		g_ch_fmodch_map[hChannel] = fmod_ch;
+//		//printf("play smple 1\n");
+//	}
+//	
+//	//printf("%d, %d, %d\n", g_channel_map.size(), g_sample_map.size(), g_ch_fmodch_map.size());
+//}
+void do_BASS_ChannelStop(int i)
+{
+	DWORD ch = psd->data[i].hChannel;
+	if (!ch)
+		return;
+	FMOD::Channel *fmod_ch = NULL;
+	DWORD idx = g_tail;
+	while (idx!=g_head)
+	{
+		if (g_ch_fmodch_node[idx].ch == ch)
+		{
+			fmod_ch = g_ch_fmodch_node[idx].fmodch;
+			break;
+		}
+		idx--;
+		idx%=TEMP_CH_SIZE;
+	}
+	if(fmod_ch)
+	{
+		fmod_ch->stop();
+		//g_channel_map.erase(hChannel);
+		//g_ch_fmodch_map.erase(hChannel);
 		//printf("play smple 1\n");
 	}
-    
+}
+DWORD work=1;
+
+BOOL WINAPI HandlerRoutine(DWORD dwCtrlType)
+{
+	printf("on exit...\n");
+	work = 0;
+	psd->onExit = true;
+	return TRUE;
 }
 
-void do_bind_sample2(){
-	FMOD::Sound *sound = g_sample_map[psd->hSample2];
-	if(sound)
+DWORD WINAPI mainloop(LPVOID param) 
+{
+	while(work)
 	{
-		fmodSystem->playSound(sound, 0, false, 0);
-		fmodSystem->update();
-		//printf("play smple 2\n");
+		WaitForSingleObject(osuRequest, INFINITE);
+		for(int i=0; i<5; i++)
+		{
+			if(psd->data[i].request)
+			{
+				//psd->data[i].injectIsBusy = 1;
+				psd->data[i].request  = 0;
+				switch (psd->data[i].requestId)
+				{
+				case OSU_REQUEST_SAMPLE_LOAD:
+					do_BASS_SampleLoad();
+					break;
+				case OSU_REQUEST_SAMPLE_LOAD_MEM:
+					do_BASS_SampleLoad_mem();
+					break;
+				case OSU_REQUEST_CHANNEL_PLAY:
+					do_bind_sample(i);
+					break;
+				case OSU_REQUEST_CHANNEL_STOP:
+					do_BASS_ChannelStop(i);
+					break;
+				}
+				psd->data[i].injectIsBusy = 0;
+			}
+		}
+#if _DEBUG		
+		printf("%lf\n", (double)(psd->m_liEnd.QuadPart - psd->m_liStart.QuadPart)/(double)psd->m_liFreq.QuadPart);
+#endif
 	}
-    
+	return 0;
 }
-void do_bind_sample3(){
-	FMOD::Sound *sound = g_sample_map[psd->hSample3];
-	if(sound)
-	{
-		fmodSystem->playSound(sound, 0, false, 0);
-		fmodSystem->update();
-		//printf("play smple 3\n");
-	}
-    
-}
-void do_bind_sample4(){
-	FMOD::Sound *sound = g_sample_map[psd->hSample4];
-	if(sound)
-	{
-		fmodSystem->playSound(sound, 0, false, 0);
-		fmodSystem->update();
-		//printf("play smple 4\n");
-	}
-    
-}
-void do_bind_sample5(){
-	FMOD::Sound *sound = g_sample_map[psd->hSample5];
-	if(sound)
-	{
-		fmodSystem->playSound(sound, 0, false, 0);
-		fmodSystem->update();
-		//printf("play smple 5\n");
-	}
-    
-}
-
 int _tmain(int argc, TCHAR *argv[])
 { 
-    GetModuleFileName(NULL,szDllPath, 1024); 
-	char * p = strrchr(szDllPath, '\\');
+	SetConsoleCtrlHandler(HandlerRoutine, TRUE);
+
+	GetModuleFileName(NULL, szHookDllPath, 1024); 
+	char * p = strrchr(szHookDllPath, '\\');
 	*p = 0;
-	strcat(szDllPath, "\\asioHook.dll");
-	 GetModuleFileName(NULL,szConfigPath, 1024); 
+	strcat(szHookDllPath, "\\asioHook.dll");
+
+	GetModuleFileName(NULL,szConfigPath, 1024); 
 	p = strrchr(szConfigPath, '\\');
 	*p = 0;
 	strcat(szConfigPath, "\\config.ini");
 
-	initAsio();
-	if (InjectDll())
-		_tprintf(_T("InjectDll sucess!\n"));
-	else
-		_tprintf(_T("InjectDll failed!\n"));
-	Sleep(2000);
+	GetModuleFileName(NULL,szSampleFolderPath, 1024); 
+	p = strrchr(szSampleFolderPath, '\\');
+	*p = 0;
+	strcat(szSampleFolderPath, "\\bakupSamples\\");
 
-	strcat(szOsuPath, "sharedData.dll");
-	osuRequest = OpenSemaphore(SEMAPHORE_ALL_ACCESS, FALSE, "osuRequest");
-	printf("osuRequest: %p\n", osuRequest);
-	
-	HMODULE hsd = LoadLibrary(szOsuPath);
+
+
+	initAsio();
+	//
+	HMODULE hsd = LoadLibrary("sharedData.dll");
 	if (!hsd)
 	{
 		printf("please put sharedData.dll to osu!.exe dir\n");
@@ -275,77 +427,39 @@ int _tmain(int argc, TCHAR *argv[])
 	}
 	PgetSharedData pgetsd = (PgetSharedData)GetProcAddress(hsd, "getSharedData");
 	psd = pgetsd();
+	psd->onExit = false;
 
 
-	while(1)
+	if (InjectDll())
+		_tprintf(_T("InjectDll sucess!\n"));
+	else
 	{
-		WaitForSingleObject(osuRequest, INFINITE);
-		if(psd->request)
-		{
-			psd->injectIsBusy = 1;
-			psd->request  = 0;
-			switch (psd->requestId)
-			{
-			case OSU_REQUEST_SAMPLE_LOAD:
-				do_BASS_SampleLoad();
-				break;
-			case OSU_REQUEST_SAMPLE_GETCHANNEL:
-				do_bind_sample();
-				break;
-			}
-			psd->injectIsBusy = 0;
-		}
-		if(psd->request2)
-		{
-			psd->injectIsBusy2 = 1;
-			psd->request2  = 0;
-			switch (psd->requestId2)
-			{
-			case OSU_REQUEST_SAMPLE_GETCHANNEL:
-				do_bind_sample2();
-				break;
-			}
-			psd->injectIsBusy2 = 0;
-		}
-		
-		if(psd->request3)
-		{
-			psd->injectIsBusy3 = 1;
-			psd->request3  = 0;
-			switch (psd->requestId3)
-			{
-			case OSU_REQUEST_SAMPLE_GETCHANNEL:
-				do_bind_sample3();
-				break;
-			}
-			psd->injectIsBusy3 = 0;
-		}
-		if(psd->request4)
-		{
-			psd->injectIsBusy4 = 1;
-			psd->request4  = 0;
-			switch (psd->requestId4)
-			{
-			case OSU_REQUEST_SAMPLE_GETCHANNEL:
-				do_bind_sample4();
-				break;
-			}
-			psd->injectIsBusy4 = 0;
-		}
-
-		if(psd->request5)
-		{
-			psd->injectIsBusy5 = 1;
-			psd->request5  = 0;
-			switch (psd->requestId5)
-			{
-			case OSU_REQUEST_SAMPLE_GETCHANNEL:
-				do_bind_sample5();
-				break;
-			}
-			psd->injectIsBusy5 = 0;
-		}
-
+		_tprintf(_T("InjectDll failed!\n"));
+		return -1;
 	}
+	
+	Sleep(2000); //wait for asioHook.dll to create the osuRequest Semaphore
+	osuRequest = OpenSemaphore(SEMAPHORE_ALL_ACCESS, FALSE, "osuRequest");
+	if (!osuRequest)
+	{
+		printf("can not open Semaphore osuRequest!\n");
+		system("pause");
+		return 0;
+	}
+	printf("globel Semaphore osuRequest: %p\n", osuRequest);
+
+	HANDLE h1 = CreateThread(0, 0, (LPTHREAD_START_ROUTINE)mainloop, 0, 0, 0);
+
+	SetThreadPriority(h1, curPriority);
+	WaitForSingleObject(h1, INFINITE);
+	//MSG msg;
+	//while(GetMessage(&msg, NULL, 0, 0)) {
+	//	TranslateMessage(&msg);
+	//	printf("%p\n", msg.message);
+	//	if (msg.message == WM_DESTROY)
+	//		break;
+	//	DispatchMessage(&msg);
+	//}
+	//work = 0;
 	return 0;
 }

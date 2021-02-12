@@ -4,34 +4,30 @@
 #include "../fmod/inc/fmod_errors.h"
 
 #define OSU_REQUEST_SAMPLE_LOAD				0
-#define OSU_REQUEST_SAMPLE_GETCHANNEL		1
+//#define OSU_REQUEST_SAMPLE_GETCHANNEL		1
+#define OSU_REQUEST_CHANNEL_PLAY			2
+#define OSU_REQUEST_CHANNEL_STOP			3
+#define OSU_REQUEST_SAMPLE_LOAD_MEM			4
 
+#define MAX_BUFF_SIZE					1024*1024*4		//4MB
 typedef struct _sharedData{
+	struct _data{
 	DWORD request;
     DWORD requestId;
 	DWORD injectIsBusy;
 	DWORD hSample;
-	char buf[2048];
+	DWORD hChannel;
 
-	DWORD request2;
-	DWORD requestId2;
-	DWORD injectIsBusy2;
-	DWORD hSample2;
+	} data[5];
+	char buf[MAX_BUFF_SIZE];
+	DWORD length;
+	bool	onExit;
 
-	DWORD request3;
-	DWORD requestId3;
-	DWORD injectIsBusy3;
-	DWORD hSample3;
-
-	DWORD request4;
-	DWORD requestId4;
-	DWORD injectIsBusy4;
-	DWORD hSample4;
-
-	DWORD request5;
-	DWORD requestId5;
-	DWORD injectIsBusy5;
-	DWORD hSample5;
+#if _DEBUG
+LARGE_INTEGER m_liFreq;
+LARGE_INTEGER m_liStart;
+LARGE_INTEGER m_liEnd;
+#endif
 
 } SHAREDDATA, *PSHAREDDATA;
 
