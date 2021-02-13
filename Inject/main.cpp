@@ -32,6 +32,9 @@ char szSampleFolderPath[1024];
 DWORD dwPID = 0;
 //char szSharedDllPath[1024];
 char szConfigPath[1024];
+
+char gameName[128];
+
 VOID EnumProcess()
 {
 	
@@ -47,7 +50,7 @@ VOID EnumProcess()
 	BOOL bMore = Process32First(hProcessSnap,&pe32);
     while(bMore)
     {
-		if (!strcmp(pe32.szExeFile, "osu!.exe"))
+		if (!strcmp(pe32.szExeFile, gameName))
 		{
 			dwPID = pe32.th32ProcessID;
 			break;
@@ -60,7 +63,7 @@ VOID EnumProcess()
 
 BOOL InjectDll()
 {
-	printf("waiting for osu to run...");
+	printf("waiting for %s to run ... \n", gameName);
 	while(!dwPID)
 	{
 		EnumProcess();
@@ -136,9 +139,9 @@ void initAsio(){
 		if(strstr(buf, "devId"))
 		{
 			sscanf(p, "%d", &devId);
-		}/*else if (strstr(buf, "osuPath")){
-			sscanf(p, "%s", &szOsuPath);
-		}*/else if (strstr(buf, "fmodBuffLength")){
+		}else if (strstr(buf, "gameName")){
+			sscanf(p, "%s", &gameName);
+		}else if (strstr(buf, "fmodBuffLength")){
 			sscanf(p, "%d", &fmodBuffLength);
 		}else if (strstr(buf, "fmodMaxBuffers")){
 			sscanf(p, "%d", &fmodMaxBuffers);
@@ -147,6 +150,7 @@ void initAsio(){
 		}else if (strstr(buf, "processPriority")){
 			sscanf(p, "%d", &processPriority);
 		}
+
 	}
 
 	fclose(fp);
@@ -401,6 +405,8 @@ DWORD WINAPI mainloop(LPVOID param)
 }
 int _tmain(int argc, TCHAR *argv[])
 { 
+	printf("AsioHookForOsu v0.8.2\n");
+	printf("=====================\n");
 	SetConsoleCtrlHandler(HandlerRoutine, TRUE);
 
 	GetModuleFileName(NULL, szHookDllPath, 1024); 
