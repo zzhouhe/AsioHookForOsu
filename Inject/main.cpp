@@ -95,7 +95,7 @@ BOOL InjectDll()
 	WriteProcessMemory(hProcess, pRemoteBuf, szHookDllPath, dwBufsize, NULL);
 	hMod = GetModuleHandle(_T("kernel32.dll"));
 	pThreadProc = (LPTHREAD_START_ROUTINE)GetProcAddress(hMod, _T("LoadLibraryA"));
-	printf("%p\n", pThreadProc);
+	//printf("%p\n", pThreadProc);
 
 	hThread = CreateRemoteThread(
 		hProcess,
@@ -106,7 +106,7 @@ BOOL InjectDll()
 		0,
 		NULL
 		);
-	printf("%p\n", hThread);
+	//printf("%p\n", hThread);
 	WaitForSingleObject(hThread, INFINITE);
 	CloseHandle(hThread);
 	CloseHandle(hProcess);
@@ -403,6 +403,7 @@ DWORD WINAPI mainloop(LPVOID param)
 	}
 	return 0;
 }
+
 int _tmain(int argc, TCHAR *argv[])
 { 
 	printf("AsioHookForOsu v0.8.2\n");
@@ -439,7 +440,7 @@ int _tmain(int argc, TCHAR *argv[])
 	psd = pgetsd();
 	psd->onExit = false;
 
-
+	//system("pause");
 	if (InjectDll())
 		_tprintf(_T("InjectDll sucess!\n"));
 	else
@@ -447,7 +448,7 @@ int _tmain(int argc, TCHAR *argv[])
 		_tprintf(_T("InjectDll failed!\n"));
 		return -1;
 	}
-	
+
 	Sleep(2000); //wait for asioHook.dll to create the osuRequest Semaphore
 	osuRequest = OpenSemaphore(SEMAPHORE_ALL_ACCESS, FALSE, "osuRequest");
 	if (!osuRequest)
