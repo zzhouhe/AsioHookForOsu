@@ -60,12 +60,16 @@ VOID EnumProcess()
 
 BOOL InjectDll()
 {
-	EnumProcess();
-	if (!dwPID){
-		printf("not found osu!.exe\n");
-		system("pause");
-		return false;
+	printf("waiting for osu to run...");
+	while(!dwPID)
+	{
+		EnumProcess();
 	}
+	//if (!dwPID){
+	//	//printf("not found osu!.exe\n");
+	//	//system("pause");
+	//	return false;
+	//}
 	printf("szdllPath = %s\n", szHookDllPath);
 	HANDLE hProcess = NULL;
 	HANDLE hThread = NULL;
