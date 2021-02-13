@@ -84,6 +84,7 @@ void doHook(){
 //	*(BYTE *)addr_BASS_SampleLoad = 0x68;
 //	*(DWORD *)(addr_BASS_SampleLoad+1) = (DWORD)hook_BASS_SampleLoad;
 //	*(BYTE *)(addr_BASS_SampleLoad+5) = 0xc3;
+	LoadLibrary("bass.dll");
 	MH_Initialize();
 	pBASS_SampleLoad = (fpBASS_SampleLoad) GetProcAddress(GetModuleHandle("bass.dll"), "BASS_SampleLoad");
 	printf("addr_BASS_SampleLoad: %p\n", pBASS_SampleLoad);
